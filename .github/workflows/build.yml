@@ -8,14 +8,16 @@ jobs:
   build-release-and-pr:
     runs-on: ubuntu-latest
     permissions:
+      actions: write
       contents: write
       pull-requests: write
     steps:
       - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
       - name: Build thumbnail.wasm
+        env:
+          DOCKER_BUILD_FLAGS: --load --cache-from type=gha --cache-to type=gha,mode=max
         run: ./build.sh
-      - name: Sync embedded wasm file
-        run: cp wasm/thumbnail.wasm govips/thumbnail.wasm
       - name: Detect embedded wasm changes
         id: changes
         run: |
