@@ -20,14 +20,16 @@ Pre-built `vips-thumbnail.wasm` is available from [GitHub Releases](../../releas
 ```
 argv[0]: "thumbnail"    (program name)
 argv[1]: <width>        (pixels, required)
-argv[2]: <suffix>       (".jpg", ".png", ".webp", ".avif", ".heif")
+argv[2]: <suffix>       (".jpg", ".png", ".webp", ".avif")
 argv[3]: <height>       (pixels, 0 = preserve aspect ratio)
 argv[4]: <quality>      (1-100, 0 = encoder default; applies to JPEG/WebP/AVIF)
 argv[5]: <strip>        (1 = strip metadata, 0 = keep)
 ```
 
-Images are always scaled **down** (`VIPS_SIZE_DOWN`) — inputs smaller than the
-target dimensions are returned unchanged.
+Aspect ratio is always preserved: the result is constrained within the
+requested width/height box (or width-only when `height=0`). Images are always
+scaled **down** (`VIPS_SIZE_DOWN`), so inputs smaller than the target box are
+returned unchanged.
 
 ### Supported formats
 
@@ -37,7 +39,7 @@ target dimensions are returned unchanged.
 | PNG    | yes  | yes   | `.png` |
 | WebP   | yes  | yes   | `.webp` |
 | AVIF   | yes  | yes   | `.avif` |
-| HEIF   | yes  | yes   | `.heif` |
+| HEIF/HEIC | yes | no (decode-only) | n/a |
 
 ### Emscripten host imports
 
@@ -61,6 +63,18 @@ Host runtimes must implement these. See the reference implementations below.
 - setjmp/longjmp via panic/recover with sentinel value
 - Persistent compilation cache (`~/.cache/vips-thumb/`)
 - Output format detection from file extension
+
+Library package: [`govips`](govips/govips.go)
+
+```go
+out, err := govips.Resize(ctx, inputBytes, govips.ResizeOptions{
+    Width:        300,
+    Height:       0,
+    Format:       govips.FormatWebP, // required
+    Quality:      80,
+    KeepMetadata: false,
+})
+```
 
 ```
 go build -o vips-thumb .

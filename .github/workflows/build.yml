@@ -5,16 +5,42 @@ on:
     tags: ['v*']
 
 jobs:
-  build-and-release:
+  build-release-and-pr:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      pull-requests: write
     steps:
       - uses: actions/checkout@v4
       - name: Build thumbnail.wasm
         run: ./build.sh
+      - name: Sync embedded wasm file
+        run: cp wasm/thumbnail.wasm govips/thumbnail.wasm
+      - name: Detect embedded wasm changes
+        id: changes
+        run: |
+          if git diff --quiet -- govips/thumbnail.wasm; then
+            echo "wasm_changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "wasm_changed=true" >> "$GITHUB_OUTPUT"
+          fi
       - name: Create Release
+        if: steps.changes.outputs.wasm_changed == 'true'
         uses: softprops/action-gh-release@v2
         with:
           files: vips-thumbnail.wasm
           generate_release_notes: true
+      - name: Create PR for embedded wasm update
+        if: steps.changes.outputs.wasm_changed == 'true'
+        uses: peter-evans/create-pull-request@v6
+        with:
+          branch: ci/sync-embedded-wasm-${{ github.ref_name }}
+          base: master
+          title: "chore(wasm): sync embedded wasm for ${{ github.ref_name }}"
+          commit-message: "chore(wasm): sync embedded wasm for ${{ github.ref_name }}"
+          body: |
+            Updates `govips/thumbnail.wasm` from the tagged build `${{ github.ref_name }}`.
+
+            This PR is created automatically by CI when the embedded wasm changes.
+          add-paths: |
+            govips/thumbnail.wasm
