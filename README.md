@@ -21,7 +21,9 @@ Pre-built `vips-thumbnail.wasm` is available from [GitHub Releases](../../releas
 argv[0]: "thumbnail"    (program name)
 argv[1]: <width>        (pixels, required)
 argv[2]: <suffix>       (".jpg", ".png", ".webp", ".avif", ".heif")
-argv[3]: [height]       (pixels, optional — 0 or omit to preserve aspect ratio)
+argv[3]: <height>       (pixels, 0 = preserve aspect ratio)
+argv[4]: <quality>      (1-100, 0 = encoder default; applies to JPEG/WebP/AVIF)
+argv[5]: <strip>        (1 = strip metadata, 0 = keep)
 ```
 
 Images are always scaled **down** (`VIPS_SIZE_DOWN`) — inputs smaller than the
@@ -64,6 +66,8 @@ Host runtimes must implement these. See the reference implementations below.
 go build -o vips-thumb .
 ./vips-thumb input.jpg output.jpg 300
 ./vips-thumb input.jpg output.webp 300 200
+./vips-thumb -q 80 input.jpg output.webp 300
+./vips-thumb -keep-metadata input.jpg output.jpg 300
 ```
 
 ### Deno
@@ -75,6 +79,8 @@ go build -o vips-thumb .
 
 ```
 deno run -A deno/run.ts input.jpg output.jpg 300
+deno run -A deno/run.ts input.jpg output.webp 300 200 80
+deno run -A deno/run.ts input.jpg output.jpg 300 0 0 --keep-metadata
 ```
 
 ## Building from source

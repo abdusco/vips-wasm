@@ -1,7 +1,7 @@
 // vips-thumb — thumbnail images using libvips compiled to standalone WASM.
 //
 // Usage:
-//   vips-thumb <input> <output> <width> [height]
+//   vips-thumb [flags] <input> <output> <width> [height]
 //
 // The embedded wasm/thumbnail.wasm is built by wasm/build.sh using Emscripten
 // -sSTANDALONE_WASM=1.  It is run by wazero (pure Go, no CGo).
@@ -16,6 +16,7 @@ import (
 	"context"
 	_ "embed"
 	"errors"
+	"flag"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -211,19 +212,29 @@ func extToSuffix(ext string) string {
 // ── main ──────────────────────────────────────────────────────────────────────
 
 func main() {
-	if len(os.Args) < 4 {
-		fmt.Fprintln(os.Stderr, "usage: vips-thumb <input> <output> <width> [height]")
+	quality := flag.Int("q", 0, "output quality 1-100 (0 = encoder default)")
+	keepMeta := flag.Bool("keep-metadata", false, "keep image metadata (stripped by default)")
+	flag.Usage = func() {
+		fmt.Fprintln(os.Stderr, "usage: vips-thumb [flags] <input> <output> <width> [height]")
 		fmt.Fprintln(os.Stderr, "")
 		fmt.Fprintln(os.Stderr, "  input   — source image (JPEG, PNG, WebP, …)")
 		fmt.Fprintln(os.Stderr, "  output  — destination path (format from extension)")
 		fmt.Fprintln(os.Stderr, "  width   — target width in pixels")
 		fmt.Fprintln(os.Stderr, "  height  — optional max height (0 = preserve aspect ratio)")
+		fmt.Fprintln(os.Stderr, "")
+		flag.PrintDefaults()
+	}
+	flag.Parse()
+
+	args := flag.Args()
+	if len(args) < 3 {
+		flag.Usage()
 		os.Exit(1)
 	}
 
-	inputPath := os.Args[1]
-	outputPath := os.Args[2]
-	widthStr := os.Args[3]
+	inputPath := args[0]
+	outputPath := args[1]
+	widthStr := args[2]
 
 	if w, err := strconv.Atoi(widthStr); err != nil || w <= 0 {
 		fmt.Fprintf(os.Stderr, "error: width must be a positive integer, got %q\n", widthStr)
@@ -231,12 +242,18 @@ func main() {
 	}
 
 	heightStr := "0"
-	if len(os.Args) >= 5 {
-		if h, err := strconv.Atoi(os.Args[4]); err != nil || h < 0 {
-			fmt.Fprintf(os.Stderr, "error: height must be a non-negative integer, got %q\n", os.Args[4])
+	if len(args) >= 4 {
+		if h, err := strconv.Atoi(args[3]); err != nil || h < 0 {
+			fmt.Fprintf(os.Stderr, "error: height must be a non-negative integer, got %q\n", args[3])
 			os.Exit(1)
 		}
-		heightStr = os.Args[4]
+		heightStr = args[3]
+	}
+
+	qualityStr := strconv.Itoa(*quality)
+	stripStr := "1"
+	if *keepMeta {
+		stripStr = "0"
 	}
 
 	inputData, err := os.ReadFile(inputPath)
@@ -292,7 +309,7 @@ func main() {
 		WithStdin(bytes.NewReader(inputData)).
 		WithStdout(&outBuf).
 		WithStderr(os.Stderr).
-		WithArgs("thumbnail", widthStr, suffix, heightStr)
+		WithArgs("thumbnail", widthStr, suffix, heightStr, qualityStr, stripStr)
 
 	_, err = rt.InstantiateModule(ctx, compiled, cfg)
 	if err != nil {

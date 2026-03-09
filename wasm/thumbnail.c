@@ -1,10 +1,12 @@
 /*
  * thumbnail.c — minimal libvips thumbnail via stdin/stdout (standalone WASM).
  *
- * Usage: thumbnail <width> <suffix> [height]
- *   width  — target width in pixels
- *   suffix — output format hint: ".jpg", ".png", ".webp", etc.
- *   height — optional max height (0 = preserve aspect ratio)
+ * Usage: thumbnail <width> <suffix> <height> <quality> <strip>
+ *   width   — target width in pixels
+ *   suffix  — output format hint: ".jpg", ".png", ".webp", etc.
+ *   height  — max height (0 = preserve aspect ratio)
+ *   quality — 1-100 output quality (0 = encoder default); applies to JPEG/WebP/AVIF
+ *   strip   — 1 = strip metadata, 0 = keep
  *
  * Reads the source image from stdin, writes the thumbnail to stdout.
  * Emscripten -sSTANDALONE_WASM=1 stubs out path_open, so file I/O must
@@ -35,15 +37,17 @@ static void *read_all(FILE *fp, size_t *out_len) {
 }
 
 int main(int argc, char *argv[]) {
-    if (argc < 3) {
-        fprintf(stderr, "usage: thumbnail <width> <suffix> [height]\n");
+    if (argc < 6) {
+        fprintf(stderr, "usage: thumbnail <width> <suffix> <height> <quality> <strip>\n");
         fprintf(stderr, "  reads image from stdin, writes thumbnail to stdout\n");
         return 1;
     }
 
     int width  = atoi(argv[1]);
     const char *suffix = argv[2]; /* e.g. ".jpg", ".png", ".webp" */
-    int height = (argc >= 4) ? atoi(argv[3]) : 0;
+    int height  = atoi(argv[3]);
+    int quality = atoi(argv[4]); /* 0 = encoder default */
+    int strip   = atoi(argv[5]); /* 1 = strip metadata */
 
     if (width <= 0) {
         fprintf(stderr, "width must be > 0\n");
@@ -93,7 +97,20 @@ int main(int argc, char *argv[]) {
      * pipeline that references the blob's memory until evaluation completes. */
     void *out_buf = NULL;
     size_t out_len = 0;
-    if (vips_image_write_to_buffer(out, suffix, &out_buf, &out_len, NULL)) {
+    int w;
+    if (quality > 0 && strip) {
+        w = vips_image_write_to_buffer(out, suffix, &out_buf, &out_len,
+            "Q", quality, "strip", TRUE, NULL);
+    } else if (quality > 0) {
+        w = vips_image_write_to_buffer(out, suffix, &out_buf, &out_len,
+            "Q", quality, NULL);
+    } else if (strip) {
+        w = vips_image_write_to_buffer(out, suffix, &out_buf, &out_len,
+            "strip", TRUE, NULL);
+    } else {
+        w = vips_image_write_to_buffer(out, suffix, &out_buf, &out_len, NULL);
+    }
+    if (w) {
         free(in_buf);
         fprintf(stderr, "vips_image_write_to_buffer: %s\n", vips_error_buffer());
         g_object_unref(out);

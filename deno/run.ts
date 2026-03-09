@@ -3,7 +3,7 @@
  * run.ts — thumbnail images using libvips compiled to standalone WASM.
  *
  * Usage:
- *   deno run --allow-read --allow-write run.ts <input> <output> <width> [height]
+ *   deno run --allow-read --allow-write run.ts <input> <output> <width> [height] [quality] [--keep-metadata]
  *
  * Runs the same thumbnail.wasm built by ../wasm/build.sh.  Uses Deno's WASI
  * support for fd_read/fd_write/etc. and native JS try/catch for the Emscripten
@@ -220,10 +220,14 @@ function buildWasi(
 // ── Main ────────────────────────────────────────────────────────────────────
 
 async function main() {
-  const [input, output, widthStr, heightStr] = Deno.args;
+  // Parse --keep-metadata flag
+  const keepMetadata = Deno.args.includes("--keep-metadata");
+  const positionalArgs = Deno.args.filter((a) => !a.startsWith("--"));
+
+  const [input, output, widthStr, heightStr, qualityStr] = positionalArgs;
   if (!input || !output || !widthStr) {
     console.error(
-      "usage: run.ts <input> <output> <width> [height]",
+      "usage: run.ts <input> <output> <width> [height] [quality] [--keep-metadata]",
     );
     Deno.exit(1);
   }
@@ -235,6 +239,8 @@ async function main() {
   }
 
   const height = heightStr ? parseInt(heightStr) : 0;
+  const quality = qualityStr ? parseInt(qualityStr) : 0;
+  const strip = keepMetadata ? 0 : 1;
 
   // Determine output format from extension.
   const ext = output.match(/\.[^.]+$/)?.[0]?.toLowerCase() ?? ".jpg";
@@ -248,7 +254,7 @@ async function main() {
   const stdoutChunks: Uint8Array[] = [];
 
   const { wasi, setMemory } = buildWasi(
-    ["thumbnail", String(width), suffix, String(height)],
+    ["thumbnail", String(width), suffix, String(height), String(quality), String(strip)],
     inputData,
     stdoutChunks,
   );
