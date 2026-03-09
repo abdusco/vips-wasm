@@ -1,0 +1,5 @@
+vips-thumb
+vips-thumbnail.wasm
+test.jpg
+build/
+wasm/thumbnail.wasm
