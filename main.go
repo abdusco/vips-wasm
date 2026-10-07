@@ -30,13 +30,14 @@ func extToFormat(ext string) (govips.Format, error) {
 func main() {
 	quality := flag.Int("q", 0, "output quality 1-100 (0 = encoder default)")
 	keepMeta := flag.Bool("keep-metadata", false, "keep image metadata (stripped by default)")
+	mode := flag.String("mode", "fit", "size mode: fit, crop (centre-crop to exactly WxH) or force (stretch to exactly WxH); crop and force need a height")
 	flag.Usage = func() {
 		fmt.Fprintln(os.Stderr, "usage: vips-thumb [flags] <input> <output> <width> [height]")
 		fmt.Fprintln(os.Stderr, "")
 		fmt.Fprintln(os.Stderr, "  input   - source image (JPEG, PNG, WebP, ...)")
 		fmt.Fprintln(os.Stderr, "  output  - destination path (format from extension)")
 		fmt.Fprintln(os.Stderr, "  width   - target width in pixels")
-		fmt.Fprintln(os.Stderr, "  height  - optional max height (0 = preserve aspect ratio)")
+		fmt.Fprintln(os.Stderr, "  height  - optional max height (0 = preserve aspect ratio; required for -mode crop/force)")
 		fmt.Fprintln(os.Stderr, "")
 		flag.PrintDefaults()
 	}
@@ -90,6 +91,7 @@ func main() {
 		Format:       format,
 		Quality:      *quality,
 		KeepMetadata: *keepMeta,
+		Mode:         govips.Mode(*mode),
 	})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
