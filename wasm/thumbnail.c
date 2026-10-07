@@ -1,12 +1,18 @@
 /*
  * thumbnail.c — minimal libvips thumbnail via stdin/stdout (standalone WASM).
  *
- * Usage: thumbnail <width> <suffix> <height> <quality> <strip>
+ * Usage: thumbnail <width> <suffix> <height> <quality> <strip> [mode]
  *   width   — target width in pixels
  *   suffix  — output format hint: ".jpg", ".png", ".webp", etc.
- *   height  — max height (0 = preserve aspect ratio)
+ *   height  — max height (0 = preserve aspect ratio; must be > 0 for crop/force)
  *   quality — 1-100 output quality (0 = encoder default); applies to JPEG/WebP/AVIF
  *   strip   — 1 = strip metadata, 0 = keep
+ *   mode    — optional, default "fit":
+ *               fit   — fit inside width x height, never upscales
+ *               crop  — cover width x height, then centre-crop to exactly that size
+ *               force — stretch to exactly width x height, ignoring aspect ratio
+ *             crop and force also upscale (VIPS_SIZE_BOTH) so the output is
+ *             always exactly width x height.
  *
  * Reads the source image from stdin, writes the thumbnail to stdout.
  * Emscripten -sSTANDALONE_WASM=1 stubs out path_open, so file I/O must
@@ -38,7 +44,7 @@ static void *read_all(FILE *fp, size_t *out_len) {
 
 int main(int argc, char *argv[]) {
     if (argc < 6) {
-        fprintf(stderr, "usage: thumbnail <width> <suffix> <height> <quality> <strip>\n");
+        fprintf(stderr, "usage: thumbnail <width> <suffix> <height> <quality> <strip> [fit|crop|force]\n");
         fprintf(stderr, "  reads image from stdin, writes thumbnail to stdout\n");
         return 1;
     }
@@ -48,9 +54,20 @@ int main(int argc, char *argv[]) {
     int height  = atoi(argv[3]);
     int quality = atoi(argv[4]); /* 0 = encoder default */
     int strip   = atoi(argv[5]); /* 1 = strip metadata */
+    const char *mode = argc > 6 ? argv[6] : "fit"; /* missing = fit, for old callers */
 
     if (width <= 0) {
         fprintf(stderr, "width must be > 0\n");
+        return 1;
+    }
+    int is_crop  = strcmp(mode, "crop") == 0;
+    int is_force = strcmp(mode, "force") == 0;
+    if (!is_crop && !is_force && strcmp(mode, "fit") != 0) {
+        fprintf(stderr, "mode must be one of: fit, crop, force\n");
+        return 1;
+    }
+    if ((is_crop || is_force) && height <= 0) {
+        fprintf(stderr, "height must be > 0 for mode %s\n", mode);
         return 1;
     }
 
@@ -78,7 +95,16 @@ int main(int argc, char *argv[]) {
 
     VipsImage *out = NULL;
     int r;
-    if (height > 0) {
+    if (is_crop) {
+        /* No VIPS_SIZE_DOWN: it would leave small sources smaller than the
+         * box, and crop must always return exactly width x height. */
+        r = vips_thumbnail_buffer(in_buf, in_len, &out, width,
+            "height", height, "size", VIPS_SIZE_BOTH,
+            "crop", VIPS_INTERESTING_CENTRE, NULL);
+    } else if (is_force) {
+        r = vips_thumbnail_buffer(in_buf, in_len, &out, width,
+            "height", height, "size", VIPS_SIZE_FORCE, NULL);
+    } else if (height > 0) {
         r = vips_thumbnail_buffer(in_buf, in_len, &out, width,
             "height", height, "size", VIPS_SIZE_DOWN, NULL);
     } else {
