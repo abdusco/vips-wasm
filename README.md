@@ -21,15 +21,23 @@ Pre-built `vips-thumbnail.wasm` is available from [GitHub Releases](../../releas
 argv[0]: "thumbnail"    (program name)
 argv[1]: <width>        (pixels, required)
 argv[2]: <suffix>       (".jpg", ".png", ".webp", ".avif")
-argv[3]: <height>       (pixels, 0 = preserve aspect ratio)
+argv[3]: <height>       (pixels, 0 = preserve aspect ratio; must be > 0 for crop/force)
 argv[4]: <quality>      (1-100, 0 = encoder default; applies to JPEG/WebP/AVIF)
 argv[5]: <strip>        (1 = strip metadata, 0 = keep)
+argv[6]: <mode>         (optional: "fit" (default), "crop" or "force")
 ```
 
-Aspect ratio is always preserved: the result is constrained within the
-requested width/height box (or width-only when `height=0`). Images are always
-scaled **down** (`VIPS_SIZE_DOWN`), so inputs smaller than the target box are
-returned unchanged.
+`argv[6]` may be omitted; the 5-argument form behaves as `fit`.
+
+| Mode    | Behaviour | Output size | Upscales |
+|---------|-----------|-------------|----------|
+| `fit`   | Fit inside the width/height box (or width-only when `height=0`), keeping the aspect ratio. `VIPS_SIZE_DOWN` | at most `width` x `height` | no: smaller inputs are returned unchanged |
+| `crop`  | Scale to cover the box, then centre-crop (`VIPS_INTERESTING_CENTRE`). `VIPS_SIZE_BOTH` | exactly `width` x `height` | yes |
+| `force` | Stretch to the box, ignoring the aspect ratio. `VIPS_SIZE_FORCE` | exactly `width` x `height` | yes |
+
+`crop` and `force` drop `VIPS_SIZE_DOWN` on purpose: with it, an input smaller
+than the box would come out smaller than requested. They exit with an error if
+`height` is 0.
 
 ### Supported formats
 
@@ -73,6 +81,16 @@ out, err := govips.Resize(ctx, inputBytes, govips.ResizeOptions{
     Format:       govips.FormatWebP, // required
     Quality:      80,
     KeepMetadata: false,
+    Mode:         govips.ModeFit, // default; or ModeCrop / ModeForce
+})
+
+// Exactly 300x200, centre-cropped. Height must be > 0 for crop and force,
+// otherwise Resize returns ErrInvalidOptions.
+out, err = govips.Resize(ctx, inputBytes, govips.ResizeOptions{
+    Width:  300,
+    Height: 200,
+    Format: govips.FormatWebP,
+    Mode:   govips.ModeCrop,
 })
 ```
 
@@ -80,6 +98,8 @@ out, err := govips.Resize(ctx, inputBytes, govips.ResizeOptions{
 go build -o vips-thumb .
 ./vips-thumb input.jpg output.jpg 300
 ./vips-thumb input.jpg output.webp 300 200
+./vips-thumb -mode crop input.jpg output.webp 300 200
+./vips-thumb -mode force input.jpg output.jpg 300 200
 ./vips-thumb -q 80 input.jpg output.webp 300
 ./vips-thumb -keep-metadata input.jpg output.jpg 300
 ```
@@ -95,7 +115,11 @@ go build -o vips-thumb .
 deno run -A deno/run.ts input.jpg output.jpg 300
 deno run -A deno/run.ts input.jpg output.webp 300 200 80
 deno run -A deno/run.ts input.jpg output.jpg 300 0 0 --keep-metadata
+deno run -A deno/run.ts input.jpg output.webp 300 200 --mode=crop
 ```
+
+The runner takes `--mode=fit|crop|force` (default `fit`) and passes it as
+`argv[6]`. `crop` and `force` need a height > 0.
 
 ## Building from source
 

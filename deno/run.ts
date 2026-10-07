@@ -3,7 +3,7 @@
  * run.ts — thumbnail images using libvips compiled to standalone WASM.
  *
  * Usage:
- *   deno run --allow-read --allow-write run.ts <input> <output> <width> [height] [quality] [--keep-metadata]
+ *   deno run --allow-read --allow-write run.ts <input> <output> <width> [height] [quality] [--keep-metadata] [--mode=fit|crop|force]
  *
  * Runs the same thumbnail.wasm built by ../wasm/build.sh.  Uses Deno's WASI
  * support for fd_read/fd_write/etc. and native JS try/catch for the Emscripten
@@ -222,13 +222,18 @@ function buildWasi(
 async function main() {
   // Parse --keep-metadata flag
   const keepMetadata = Deno.args.includes("--keep-metadata");
+  const mode = Deno.args.find((a) => a.startsWith("--mode="))?.slice("--mode=".length) ?? "fit";
   const positionalArgs = Deno.args.filter((a) => !a.startsWith("--"));
 
   const [input, output, widthStr, heightStr, qualityStr] = positionalArgs;
   if (!input || !output || !widthStr) {
     console.error(
-      "usage: run.ts <input> <output> <width> [height] [quality] [--keep-metadata]",
+      "usage: run.ts <input> <output> <width> [height] [quality] [--keep-metadata] [--mode=fit|crop|force]",
     );
+    Deno.exit(1);
+  }
+  if (!["fit", "crop", "force"].includes(mode)) {
+    console.error(`error: mode must be one of: fit, crop, force, got "${mode}"`);
     Deno.exit(1);
   }
 
@@ -241,6 +246,10 @@ async function main() {
   const height = heightStr ? parseInt(heightStr) : 0;
   const quality = qualityStr ? parseInt(qualityStr) : 0;
   const strip = keepMetadata ? 0 : 1;
+  if (mode !== "fit" && height <= 0) {
+    console.error(`error: mode ${mode} needs a height > 0`);
+    Deno.exit(1);
+  }
 
   // Determine output format from extension.
   const ext = output.match(/\.[^.]+$/)?.[0]?.toLowerCase() ?? ".jpg";
@@ -254,7 +263,7 @@ async function main() {
   const stdoutChunks: Uint8Array[] = [];
 
   const { wasi, setMemory } = buildWasi(
-    ["thumbnail", String(width), suffix, String(height), String(quality), String(strip)],
+    ["thumbnail", String(width), suffix, String(height), String(quality), String(strip), mode],
     inputData,
     stdoutChunks,
   );
