@@ -36,12 +36,28 @@ const (
 	FormatAVIF Format = ".avif"
 )
 
+// Mode selects how the source is fitted to Width x Height.
+type Mode string
+
+const (
+	// ModeFit fits inside the box, keeping the aspect ratio. Never upscales.
+	// This is the zero value.
+	ModeFit Mode = "fit"
+	// ModeCrop covers the box, then centre-crops. Output is exactly
+	// Width x Height, upscaling if needed. Requires Height > 0.
+	ModeCrop Mode = "crop"
+	// ModeForce stretches to exactly Width x Height, ignoring the aspect
+	// ratio and upscaling if needed. Requires Height > 0.
+	ModeForce Mode = "force"
+)
+
 type ResizeOptions struct {
 	Width        int
 	Height       int
 	Format       Format
 	Quality      int
 	KeepMetadata bool
+	Mode         Mode
 }
 
 type engine struct {
@@ -64,12 +80,27 @@ func (f Format) Validate() error {
 	}
 }
 
+func (m Mode) Validate() error {
+	switch m {
+	case "", ModeFit, ModeCrop, ModeForce:
+		return nil
+	default:
+		return errors.New("mode must be one of: fit, crop, force")
+	}
+}
+
 func (o ResizeOptions) Validate() error {
 	if o.Width <= 0 {
 		return errors.New("width must be > 0")
 	}
 	if o.Height < 0 {
 		return errors.New("height must be >= 0")
+	}
+	if err := o.Mode.Validate(); err != nil {
+		return err
+	}
+	if (o.Mode == ModeCrop || o.Mode == ModeForce) && o.Height <= 0 {
+		return fmt.Errorf("height must be > 0 for mode %q", o.Mode)
 	}
 	if o.Quality < 0 || o.Quality > 100 {
 		return errors.New("quality must be between 0 and 100")
@@ -89,6 +120,10 @@ func Resize(ctx context.Context, source []byte, opts ResizeOptions) ([]byte, err
 	}
 
 	suffix := string(opts.Format)
+	mode := opts.Mode
+	if mode == "" {
+		mode = ModeFit
+	}
 
 	e, err := getDefaultEngine()
 	if err != nil {
@@ -114,6 +149,7 @@ func Resize(ctx context.Context, source []byte, opts ResizeOptions) ([]byte, err
 			strconv.Itoa(opts.Height),
 			strconv.Itoa(opts.Quality),
 			stripStr,
+			string(mode),
 		)
 
 	e.mu.Lock()
