@@ -5,7 +5,7 @@
  *   width   — target width in pixels
  *   suffix  — output format hint: ".jpg", ".png", ".webp", etc.
  *   height  — max height (0 = preserve aspect ratio; must be > 0 for crop/force)
- *   quality — 1-100 output quality (0 = encoder default); applies to JPEG/WebP/AVIF
+ *   quality — 1-100 output quality (0 = encoder default); applies to JPEG/WebP/AVIF/JXL
  *   strip   — 1 = strip metadata, 0 = keep
  *   mode    — optional, default "fit":
  *               fit   — fit inside width x height, never upscales

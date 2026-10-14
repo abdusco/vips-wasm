@@ -124,6 +124,30 @@ RUN \
   meson install -C _build --tag devel && \
   rm -rf /tmp/lcms2
 
+# ── highway 1.4.0 (SIMD lib, required by libjxl) ────────────────────────────
+RUN \
+  mkdir -p /tmp/hwy && \
+  curl -Ls https://github.com/google/highway/archive/refs/tags/1.4.0.tar.gz | tar -xzC /tmp/hwy --strip-components=1 && \
+  cd /tmp/hwy && \
+  sed -i 's/HWY_ASSERT/HWY_DASSERT/' hwy/aligned_allocator.cc && \
+  meson setup _build --prefix="$TARGET" $MESON_CROSS \
+    --default-library=static --buildtype=release \
+    -Dcontrib=disabled -Dexamples=disabled -Dtests=disabled -Dtest_standalone=true && \
+  meson install -C _build --tag devel && \
+  rm -rf /tmp/hwy
+
+# ── brotli 1.2.0 (required by libjxl) ───────────────────────────────────────
+RUN \
+  mkdir -p /tmp/brotli && \
+  curl -Ls https://github.com/google/brotli/archive/refs/tags/v1.2.0.tar.gz | tar -xzC /tmp/brotli --strip-components=1 && \
+  cd /tmp/brotli && \
+  emcmake cmake -B_build -S. \
+    -DCMAKE_BUILD_TYPE=MinSizeRel -DCMAKE_INSTALL_PREFIX="$TARGET" \
+    -DBROTLI_DISABLE_TESTS=ON -DBROTLI_BUILD_TOOLS=OFF \
+    -DCMAKE_C_FLAGS="$CFLAGS -DBROTLI_EXTERNAL_DICTIONARY_DATA" && \
+  make -C _build -j$(nproc) install && \
+  rm -rf /tmp/brotli
+
 # ── mozjpeg (commit 0826579) ─────────────────────────────────────────────────
 RUN \
   mkdir -p /tmp/jpeg && \
@@ -211,6 +235,20 @@ RUN \
   make -C _build -j$(nproc) install && \
   rm -rf /tmp/heif
 
+# ── libjxl 0.12.0 (JPEG-XL) ──────────────────────────────────────────────────
+RUN \
+  mkdir -p /tmp/jxl && \
+  curl -Ls https://github.com/libjxl/libjxl/archive/refs/tags/v0.12.0.tar.gz | tar -xzC /tmp/jxl --strip-components=1 && \
+  cd /tmp/jxl && \
+  emcmake cmake -B_build -S. \
+    -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="$TARGET" -DCMAKE_FIND_ROOT_PATH="$TARGET" \
+    -DBUILD_SHARED_LIBS=OFF -DBUILD_TESTING=OFF -DJPEGXL_ENABLE_TOOLS=OFF -DJPEGXL_ENABLE_EXAMPLES=OFF \
+    -DJPEGXL_ENABLE_SJPEG=OFF -DJPEGXL_ENABLE_SKCMS=OFF -DJPEGXL_BUNDLE_LIBPNG=OFF \
+    -DJPEGXL_FORCE_SYSTEM_BROTLI=ON -DJPEGXL_FORCE_SYSTEM_LCMS2=ON -DJPEGXL_FORCE_SYSTEM_HWY=ON \
+    -DJPEGXL_ENABLE_TRANSCODE_JPEG=OFF && \
+  make -C _build -j$(nproc) install && \
+  rm -rf /tmp/jxl
+
 # ── libvips 8.18.0 ───────────────────────────────────────────────────────────
 RUN \
   mkdir -p /tmp/vips && \
@@ -225,7 +263,7 @@ RUN \
     -Ddeprecated=false -Dexamples=false -Dcplusplus=false \
     -Dauto_features=disabled -Dintrospection=disabled -Dmodules=disabled \
     -Djpeg=enabled -Dpng=enabled -Dwebp=enabled \
-    -Dheif=enabled \
+    -Dheif=enabled -Djpeg-xl=enabled \
     -Dexif=enabled -Dlcms=enabled -Dzlib=enabled && \
   meson install -C _build --tag runtime,devel && \
   rm -rf /tmp/vips

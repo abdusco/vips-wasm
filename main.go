@@ -22,6 +22,8 @@ func extToFormat(ext string) (govips.Format, error) {
 		return govips.FormatWebP, nil
 	case ".avif":
 		return govips.FormatAVIF, nil
+	case ".jxl":
+		return govips.FormatJXL, nil
 	default:
 		return "", fmt.Errorf("unsupported output extension %q", ext)
 	}

@@ -20,9 +20,9 @@ Pre-built `vips-thumbnail.wasm` is available from [GitHub Releases](../../releas
 ```
 argv[0]: "thumbnail"    (program name)
 argv[1]: <width>        (pixels, required)
-argv[2]: <suffix>       (".jpg", ".png", ".webp", ".avif")
+argv[2]: <suffix>       (".jpg", ".png", ".webp", ".avif", ".jxl")
 argv[3]: <height>       (pixels, 0 = preserve aspect ratio; must be > 0 for crop/force)
-argv[4]: <quality>      (1-100, 0 = encoder default; applies to JPEG/WebP/AVIF)
+argv[4]: <quality>      (1-100, 0 = encoder default; applies to JPEG/WebP/AVIF/JXL)
 argv[5]: <strip>        (1 = strip metadata, 0 = keep)
 argv[6]: <mode>         (optional: "fit" (default), "crop" or "force")
 ```
@@ -47,6 +47,7 @@ than the box would come out smaller than requested. They exit with an error if
 | PNG    | yes  | yes   | `.png` |
 | WebP   | yes  | yes   | `.webp` |
 | AVIF   | yes  | yes   | `.avif` |
+| JPEG-XL | yes | yes   | `.jxl` |
 | HEIF/HEIC | yes | no (decode-only) | n/a |
 
 ### Emscripten host imports
@@ -159,4 +160,7 @@ The following libraries are statically linked into the WASM binary:
 | libde265 | H.265 decoder (for HEIF) |
 | libaom | AV1 codec (for AVIF) |
 | libheif | HEIF/AVIF container |
+| highway | SIMD library (for libjxl) |
+| brotli | Compression (for libjxl) |
+| libjxl | JPEG-XL codec |
 | libvips | Image processing |

@@ -1,0 +1,20 @@
+name: Test Docker Build (temporary)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Build thumbnail.wasm
+        env:
+          DOCKER_BUILD_FLAGS: --load --cache-from type=gha --cache-to type=gha,mode=max
+        run: ./build.sh
+      - name: Upload wasm artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: thumbnail-wasm
+          path: vips-thumbnail.wasm

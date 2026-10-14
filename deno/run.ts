@@ -255,7 +255,7 @@ async function main() {
   const ext = output.match(/\.[^.]+$/)?.[0]?.toLowerCase() ?? ".jpg";
   const suffixMap: Record<string, string> = {
     ".jpg": ".jpg", ".jpeg": ".jpg", ".png": ".png", ".webp": ".webp",
-    ".avif": ".avif", ".heic": ".avif", ".heif": ".avif",
+    ".avif": ".avif", ".heic": ".avif", ".heif": ".avif", ".jxl": ".jxl",
   };
   const suffix = suffixMap[ext] ?? ".jpg";
 
