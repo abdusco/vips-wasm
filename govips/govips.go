@@ -34,6 +34,7 @@ const (
 	FormatPNG  Format = ".png"
 	FormatWebP Format = ".webp"
 	FormatAVIF Format = ".avif"
+	FormatJXL  Format = ".jxl"
 )
 
 // Mode selects how the source is fitted to Width x Height.
@@ -73,10 +74,10 @@ var (
 
 func (f Format) Validate() error {
 	switch f {
-	case FormatJPEG, FormatPNG, FormatWebP, FormatAVIF:
+	case FormatJPEG, FormatPNG, FormatWebP, FormatAVIF, FormatJXL:
 		return nil
 	default:
-		return errors.New("format must be one of: .jpg, .png, .webp, .avif")
+		return errors.New("format must be one of: .jpg, .png, .webp, .avif, .jxl")
 	}
 }
 
